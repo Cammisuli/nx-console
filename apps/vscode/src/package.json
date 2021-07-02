@@ -2,7 +2,7 @@
   "name": "angular-console",
   "displayName": "Nx Console",
   "description": "Nx Console for Visual Studio Code",
-  "version": "17.0.3",
+  "version": "17.6.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/nrwl/nx-console.git"
@@ -40,24 +40,33 @@
     "*"
   ],
   "dependencies": {
-    "jsonc-parser": "^2.1.1",
-    "json5": "2.1.1"
+    "jsonc-parser": "^3.0.0"
   },
   "contributes": {
     "menus": {
       "explorer/context": [
         {
-          "when": "isGenerateFromContextMenuEnabled",
+          "when": "!isNxWorkspace && isAngularWorkspace && config.nxConsole.enableGenerateFromContextMenu",
+          "command": "ng.generate.ui.fileexplorer",
+          "group": "explorerContext"
+        },
+        {
+          "when": "!isNxWorkspace && isAngularWorkspace && config.nxConsole.enableGenerateFromContextMenu",
+          "command": "ng.run.fileexplorer",
+          "group": "explorerContext"
+        },
+        {
+          "when": "isNxWorkspace && config.nxConsole.enableGenerateFromContextMenu",
           "command": "nx.generate.ui.fileexplorer",
+          "group": "explorerContext"
+        },
+        {
+          "when": "isNxWorkspace && config.nxConsole.enableGenerateFromContextMenu",
+          "command": "nx.run.fileexplorer",
           "group": "explorerContext"
         }
       ],
       "view/title": [
-        {
-          "command": "nxConsole.refreshNxProjectsTree",
-          "when": "view == nxConsoleJson",
-          "group": "navigation"
-        },
         {
           "command": "nxConsole.refreshNxProjectsTree",
           "when": "view == nxProjects",
@@ -66,13 +75,8 @@
       ],
       "view/item/context": [
         {
-          "command": "nxConsole.revealInExplorer",
-          "when": "view == nxConsoleJson && viewItem == project",
-          "group": "inline"
-        },
-        {
-          "command": "nxConsole.runTask",
-          "when": "view == nxConsoleJson && viewItem == task",
+          "command": "nxConsole.editWorkspaceJson",
+          "when": "view == nxProjects",
           "group": "inline"
         },
         {
@@ -87,6 +91,22 @@
         }
       ],
       "commandPalette": [
+        {
+          "command": "ng.generate.ui.fileexplorer",
+          "when": "false"
+        },
+        {
+          "command": "ng.run.fileexplorer",
+          "when": "false"
+        },
+        {
+          "command": "nx.generate.ui.fileexplorer",
+          "when": "false"
+        },
+        {
+          "command": "nx.run.fileexplorer",
+          "when": "false"
+        },
         {
           "command": "ng.lint",
           "when": "isAngularWorkspace"
@@ -109,6 +129,10 @@
         },
         {
           "command": "ng.test",
+          "when": "isAngularWorkspace"
+        },
+        {
+          "command": "ng.run",
           "when": "isAngularWorkspace"
         },
         {
@@ -169,6 +193,10 @@
         },
         {
           "command": "nx.run-many",
+          "when": "isNxWorkspace"
+        },
+        {
+          "command": "nx.run",
           "when": "isNxWorkspace"
         },
         {
@@ -244,27 +272,24 @@
     "commands": [
       {
         "command": "nxConsole.refreshNxProjectsTree",
-        "title": "Refresh",
-        "icon": {
-          "light": "assets/refresh-light.svg",
-          "dark": "assets/refresh-dark.svg"
-        }
+        "title": "Refresh Projects",
+        "category": "Nx",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "nxConsole.editWorkspaceJson",
+        "title": "Edit workspace definition",
+        "icon": "$(go-to-file)"
       },
       {
         "command": "nxConsole.revealInExplorer",
         "title": "Reveal in Explorer",
-        "icon": {
-          "light": "assets/folder-light.svg",
-          "dark": "assets/folder-dark.svg"
-        }
+        "icon": "$(folder)"
       },
       {
         "command": "nxConsole.runTask",
         "title": "Execute task",
-        "icon": {
-          "light": "assets/continue-light.svg",
-          "dark": "assets/continue-dark.svg"
-        }
+        "icon": "$(play)"
       },
       {
         "category": "ng",
@@ -295,6 +320,11 @@
         "category": "ng",
         "title": "test",
         "command": "ng.test"
+      },
+      {
+        "category": "ng",
+        "title": "run",
+        "command": "ng.run"
       },
       {
         "category": "ng",
@@ -332,134 +362,154 @@
         "command": "ng.generate.ui"
       },
       {
-        "category": "nx",
+        "category": "ng",
+        "title": "ng generate (ui)",
+        "command": "ng.generate.ui.fileexplorer"
+      },
+      {
+        "category": "ng",
+        "title": "ng run",
+        "command": "ng.run.fileexplorer"
+      },
+      {
+        "category": "Nx",
         "title": "lint",
         "command": "nx.lint"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "build",
         "command": "nx.build"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "e2e",
         "command": "nx.e2e"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "generate",
         "command": "nx.generate"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "serve",
         "command": "nx.serve"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "test",
         "command": "nx.test"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "dep-graph",
         "command": "nx.dep-graph"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "run-many",
         "command": "nx.run-many"
       },
       {
-        "category": "nx",
+        "category": "Nx",
+        "title": "run",
+        "command": "nx.run"
+      },
+      {
+        "category": "Nx",
         "title": "affected",
         "command": "nx.affected"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "affected test",
         "command": "nx.affected.test"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "affected build",
         "command": "nx.affected.build"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "affected e2e",
         "command": "nx.affected.e2e"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "affected lint",
         "command": "nx.affected.lint"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "affected apps",
         "command": "nx.affected.apps"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "affected libs",
         "command": "nx.affected.libs"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "affected dep-graph",
         "command": "nx.affected.dep-graph"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "list",
         "command": "nx.list"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "migrate",
         "command": "nx.migrate"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "lint (ui)",
         "command": "nx.lint.ui"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "build (ui)",
         "command": "nx.build.ui"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "e2e (ui)",
         "command": "nx.e2e.ui"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "serve (ui)",
         "command": "nx.serve.ui"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "test (ui)",
         "command": "nx.test.ui"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "xi18n (ui)",
         "command": "nx.xi18n.ui"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "generate (ui)",
         "command": "nx.generate.ui"
       },
       {
-        "category": "nx",
+        "category": "Nx",
         "title": "Nx generate (ui)",
         "command": "nx.generate.ui.fileexplorer"
+      },
+      {
+        "category": "Nx",
+        "title": "Nx run",
+        "command": "nx.run.fileexplorer"
       }
     ],
     "configuration": {
@@ -479,6 +529,11 @@
           "type": "boolean",
           "default": true,
           "description": "Shows or hides Nx Generate ui option from the file explorer context menu."
+        },
+        "nxConsole.enableWorkspaceConfigCodeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Shows or hides CodeLens for running targets from the Nx workspace config file."
         }
       }
     },
@@ -521,6 +576,10 @@
             "type": "string",
             "description": "The Angular CLI command to run on the selected project"
           },
+          "positional": {
+            "type": "string",
+            "description": "The project to run the command against"
+          },
           "flags": {
             "type": "array",
             "description": "An array of flags to pass to the CLI"
@@ -542,6 +601,10 @@
             "type": "string",
             "description": "The NX CLI command to run on the selected project"
           },
+          "positional": {
+            "type": "string",
+            "description": "The project to run the command against"
+          },
           "flags": {
             "type": "array",
             "description": "An array of flags to pass to the CLI"
@@ -561,7 +624,7 @@
     "views": {
       "nx-console": [
         {
-          "id": "nxConsole",
+          "id": "nxRunTarget",
           "name": "Generate & Run Target"
         },
         {
@@ -575,6 +638,20 @@
           "when": "isNxWorkspace || isAngularWorkspace"
         }
       ]
-    }
+    },
+    "jsonValidation": [
+      {
+        "fileMatch": "workspace.json",
+        "url": "./workspace-schema.json"
+      },
+      {
+        "fileMatch": "angular.json",
+        "url": "./workspace-schema.json"
+      },
+      {
+        "fileMatch": "project.json",
+        "url": "./project-schema.json"
+      }
+    ]
   }
 }

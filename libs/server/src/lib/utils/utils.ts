@@ -13,14 +13,19 @@ import {
   ItemsWithEnum,
 } from '@nx-console/schema';
 import { Option as CliOption } from '@angular/cli/models/interface';
-import * as stripJsonComments from 'strip-json-comments';
+import {
+  parse as parseJson,
+  printParseErrorCode,
+  ParseError,
+} from 'jsonc-parser';
+import { getOutputChannel } from './output-channel';
 
 export interface SchematicDefaults {
   [name: string]: string;
 }
 
 export const files: { [path: string]: string[] } = {};
-export let fileContents: { [path: string]: any } = {};
+export const fileContents: { [path: string]: any } = {};
 
 const IMPORTANT_FIELD_NAMES = [
   'name',
@@ -108,16 +113,20 @@ export function listFiles(dirName: string): string[] {
         } else if (statSync(child).isDirectory()) {
           res.push(...listFiles(child));
         }
-      } catch (e) {}
+      } catch {
+        // noop
+      }
     });
-  } catch (e) {}
+  } catch {
+    // noop
+  }
   return res;
 }
 
 export function directoryExists(filePath: string): boolean {
   try {
     return statSync(filePath).isDirectory();
-  } catch (err) {
+  } catch {
     return false;
   }
 }
@@ -125,24 +134,67 @@ export function directoryExists(filePath: string): boolean {
 export function fileExistsSync(filePath: string): boolean {
   try {
     return statSync(filePath).isFile();
-  } catch (err) {
+  } catch {
     return false;
   }
 }
 
-function readAndParseJson(fullFilePath: string): any {
-  return JSON.parse(stripJsonComments(readFileSync(fullFilePath).toString()));
+export function readAndParseJson(filePath: string) {
+  const content = readFileSync(filePath, 'utf-8');
+  try {
+    return JSON.parse(content);
+  } catch {
+    const errors: ParseError[] = [];
+    const result = parseJson(content, errors);
+
+    if (errors.length > 0) {
+      for (const { error, offset } of errors) {
+        getOutputChannel().appendLine(
+          `${printParseErrorCode(
+            error
+          )} in JSON at position ${offset} in ${filePath}`
+        );
+      }
+    }
+
+    return result;
+  }
+}
+
+export function clearJsonCache(filePath: string, basedir = '') {
+  const fullFilePath = path.join(basedir, filePath);
+  return delete fileContents[fullFilePath];
+}
+
+/**
+ * Caches already created json contents to a file path
+ */
+export function cacheJson(filePath: string, basedir = '', content?: any) {
+  const fullFilePath = path.join(basedir, filePath);
+  if (fileContents[fullFilePath]) {
+    return {
+      json: fileContents[fullFilePath],
+      path: fullFilePath,
+    };
+  }
+
+  if (content) {
+    fileContents[fullFilePath] = content;
+  }
+  return {
+    json: content,
+    path: fullFilePath,
+  };
 }
 
 export function readAndCacheJsonFile(
   filePath: string,
-  basedir: string = ''
+  basedir = ''
 ): { path: string; json: any } {
   const fullFilePath = path.join(basedir, filePath);
 
   if (fileContents[fullFilePath] || existsSync(fullFilePath)) {
-    fileContents[fullFilePath] =
-      fileContents[fullFilePath] || readAndParseJson(fullFilePath);
+    fileContents[fullFilePath] ||= readAndParseJson(fullFilePath);
 
     return {
       path: fullFilePath,
@@ -157,6 +209,7 @@ export function readAndCacheJsonFile(
 }
 
 const registry = new schema.CoreSchemaRegistry(standardFormats);
+
 export async function normalizeSchema(
   s: {
     properties: { [k: string]: any };
@@ -175,7 +228,7 @@ export async function normalizeSchema(
     const nxOption: Option = {
       ...option,
       required: isFieldRequired(requiredFields, option, xPrompt, $default),
-      ...(workspaceDefault && { default: workspaceDefault }),
+      ...(workspaceDefault !== undefined && { default: workspaceDefault }),
       ...($default && { $default }),
       ...(option.enum && { items: option.enum.map((item) => item.toString()) }),
       // Strongly suspect items does not belong in the Option schema.
@@ -253,7 +306,7 @@ function getItems(option: Option): { items: string[] } | undefined {
   return (
     option.items && {
       items:
-        (option.items as ItemsWithEnum)!.enum ||
+        (option.items as ItemsWithEnum)?.enum ||
         ((option.items as string[]).length && option.items),
     }
   );

@@ -1,4 +1,4 @@
-import { Schematic, SchematicCollection } from '@nx-console/schema';
+import { Option, Schematic, SchematicCollection } from '@nx-console/schema';
 import { basename, dirname, join } from 'path';
 
 import {
@@ -31,7 +31,7 @@ export async function readAllSchematicCollections(
   ];
   return collections.filter(
     (collection): collection is SchematicCollection =>
-      !!collection && collection!.schematics!.length > 0
+      collection && collection.schematics.length > 0
   );
 }
 
@@ -102,13 +102,10 @@ async function readSchematicCollectionsFromNodeModules(
       }
     }
   });
-  const defaults = readWorkspaceJsonDefaults(workspaceJsonPath);
 
   return (
     await Promise.all(
-      schematicCollections.map((c) =>
-        readCollection(nodeModulesDir, c, defaults)
-      )
+      schematicCollections.map((c) => readCollection(nodeModulesDir, c))
     )
   ).filter((c): c is SchematicCollection => Boolean(c));
 }
@@ -125,11 +122,7 @@ async function readWorkspaceSchematicsCollection(
   if (fileExistsSync(join(collectionDir, 'collection.json'))) {
     const collection = readAndCacheJsonFile('collection.json', collectionDir);
 
-    return await readCollectionSchematics(
-      collectionName,
-      collection.path,
-      collection.json
-    );
+    return await readCollectionSchematics(collectionName, collection.json);
   } else {
     const schematics: Schematic[] = await Promise.all(
       listFiles(collectionDir)
@@ -137,7 +130,7 @@ async function readWorkspaceSchematicsCollection(
         .map(async (f) => {
           const schemaJson = readAndCacheJsonFile(f, '');
           return {
-            name: schemaJson.json.id,
+            name: schemaJson.json.id || schemaJson.json.$id,
             collection: collectionName,
             options: await normalizeSchema(schemaJson.json),
             description: '',
@@ -150,8 +143,7 @@ async function readWorkspaceSchematicsCollection(
 
 async function readCollection(
   basedir: string,
-  collectionName: string,
-  defaults?: any
+  collectionName: string
 ): Promise<SchematicCollection | null> {
   try {
     const packageJson = readAndCacheJsonFile(
@@ -162,12 +154,7 @@ async function readCollection(
       packageJson.json.schematics || packageJson.json.generators,
       dirname(packageJson.path)
     );
-    return readCollectionSchematics(
-      collectionName,
-      collection.path,
-      collection.json,
-      defaults
-    );
+    return readCollectionSchematics(collectionName, collection.json);
   } catch (e) {
     // this happens when package is misconfigured. We decided to ignore such a case.
     return null;
@@ -176,34 +163,19 @@ async function readCollection(
 
 async function readCollectionSchematics(
   collectionName: string,
-  collectionPath: string,
-  collectionJson: any,
-  defaults?: any
+  collectionJson: any
 ) {
-  const schematicCollection = {
-    name: collectionName,
-    schematics: [] as Schematic[],
-  };
+  const generators = new Set<Schematic>();
+
   try {
     Object.entries(
-      collectionJson.schematics || collectionJson.generators
+      Object.assign({}, collectionJson.schematics, collectionJson.generators)
     ).forEach(async ([k, v]: [any, any]) => {
       try {
         if (canAdd(k, v)) {
-          const schematicSchema = readAndCacheJsonFile(
-            v.schema,
-            dirname(collectionPath)
-          );
-          const projectDefaults =
-            defaults && defaults[collectionName] && defaults[collectionName][k];
-
-          schematicCollection.schematics.push({
+          generators.add({
             name: k,
             collection: collectionName,
-            options: await normalizeSchema(
-              schematicSchema.json,
-              projectDefaults
-            ),
             description: v.description || '',
           });
         }
@@ -218,10 +190,47 @@ async function readCollectionSchematics(
     console.error(e);
     console.error(`Invalid package.json for schematic ${collectionName}`);
   }
-  return schematicCollection;
+  return {
+    name: collectionName,
+    schematics: Array.from(generators),
+  };
 }
 
-export function canAdd(
+export async function readSchematicOptions(
+  workspaceJsonPath: string,
+  collectionName: string,
+  schematicName: string
+): Promise<Option[]> {
+  const basedir = join(workspaceJsonPath, '..');
+  const nodeModulesDir = join(basedir, 'node_modules');
+  const collectionPackageJson = readAndCacheJsonFile(
+    join(collectionName, 'package.json'),
+    nodeModulesDir
+  );
+  const collectionJson = readAndCacheJsonFile(
+    collectionPackageJson.json.schematics ||
+      collectionPackageJson.json.generators,
+    dirname(collectionPackageJson.path)
+  );
+  const schematics = Object.assign(
+    {},
+    collectionJson.json.schematics,
+    collectionJson.json.generators
+  );
+
+  const schematicSchema = readAndCacheJsonFile(
+    schematics[schematicName].schema,
+    dirname(collectionJson.path)
+  );
+  const workspaceDefaults = readWorkspaceJsonDefaults(workspaceJsonPath);
+  const defaults =
+    workspaceDefaults &&
+    workspaceDefaults[collectionName] &&
+    workspaceDefaults[collectionName][schematicName];
+  return await normalizeSchema(schematicSchema.json, defaults);
+}
+
+function canAdd(
   name: string,
   s: { hidden: boolean; private: boolean; schema: string; extends: boolean }
 ): boolean {

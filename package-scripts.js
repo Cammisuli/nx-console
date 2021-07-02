@@ -28,22 +28,20 @@ module.exports = {
       },
       vscode: {
         build: nps.series.nps('prepare.vscode.server', 'prepare.vscode.client'),
-        server: 'ng build vscode --prod --noSourceMap',
+        server: 'ng build vscode-app --prod --noSourceMap',
         client: 'ng build vscode-ui --prod',
       },
       ci: {
         vscode: nps.concurrent({
-          server: 'ng build vscode --noSourceMap',
+          server: 'ng build vscode-app --noSourceMap',
           client:
             'ng build nx-console --configuration=vscode --noSourceMap --optimization=false --noCommonChunk --aot=false --buildOptimizer=false',
         }),
       },
       dev: {
         vscode: nps.concurrent({
-          server: 'ng build vscode --watch',
-          // NOTE: To inline JS we must run terser over the bundle to strip comments
-          // Some comments have html tags in them which would otherwise need special escaping
-          client: 'ng build vscode-ui --watch --prod',
+          server: 'ng build vscode-app --watch',
+          client: 'ng build vscode-ui --watch',
         }),
       },
     },
@@ -62,18 +60,6 @@ module.exports = {
       },
       write: 'nx format:write --base=upstream/master',
       check: 'nx format:check --base=upstream/master',
-    },
-    lint: {
-      default: nps.concurrent({
-        nxLint: 'nx lint',
-        tsLint: 'ng lint',
-        stylelint: 'stylelint "{apps,libs}/**/*.scss" --config .stylelintrc',
-      }),
-      fix: nps.concurrent({
-        tslint: 'ng lint --fix',
-        stylelint:
-          'stylelint "{apps,libs}/**/*.scss" --config .stylelintrc --fix',
-      }),
     },
     storybook: {
       default: 'ng run vscode-ui-feature-task-execution-form:storybook',
